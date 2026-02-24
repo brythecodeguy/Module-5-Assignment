@@ -118,3 +118,10 @@ def test_auto_save_env_parsing(tmp_path, monkeypatch, raw, expected):
     monkeypatch.setenv("CALCULATOR_AUTO_SAVE", raw)
     cfg = CalculatorConfig(auto_save=None)
     assert cfg.auto_save is expected
+
+def test_ensure_directories_creates_dirs(tmp_path):
+    cfg = CalculatorConfig(base_dir=tmp_path)
+    cfg.ensure_directories()
+
+    assert cfg.log_dir.exists()
+    assert cfg.history_dir.exists()
