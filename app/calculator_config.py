@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from app.exceptions import ConfigurationError
 
-# Load environment variables from a .env file into the program's environment
+# Load environment variables from a .env file into environment
 load_dotenv(override=True)
 
 
@@ -63,7 +63,6 @@ class CalculatorConfig:
             'CALCULATOR_DEFAULT_ENCODING', 'utf-8'
         )
 
-        # validate immediately so bad env/config fails fast
         self.validate()
 
     @property

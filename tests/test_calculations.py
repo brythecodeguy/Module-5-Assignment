@@ -19,11 +19,9 @@ from app.calculation import (
     ],
 )
 def test_factory_creates_and_executes(calc_type, a, b, expected, expected_class):
-    # Arrange / Act
     calc = CalculationFactory.create_calculation(calc_type, a, b)
     result = calc.execute()
 
-    # Assert
     assert isinstance(calc, expected_class)
     assert result == expected
 
@@ -34,8 +32,6 @@ def test_factory_unsupported_type_raises():
 
 
 def test_factory_duplicate_registration_raises():
-    # Hits the branch you showed in your coverage snippet:
-    # if calculation_type_lower in cls._calculations: raise ValueError(...)
     with pytest.raises(ValueError):
         CalculationFactory.register_calculation("add")(AddCalculation)
 
@@ -50,6 +46,5 @@ def test_repr_is_covered():
 def test_str_is_covered():
     calc = AddCalculation(2.0, 3.0)
     s = str(calc)
-    # Don’t be overly strict on formatting, just prove the path runs
     assert "AddCalculation" in s or "Add" in s
     assert "2.0" in s and "3.0" in s
