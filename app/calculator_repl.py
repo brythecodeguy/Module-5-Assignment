@@ -6,7 +6,6 @@ from app.exceptions import OperationError, ValidationError
 from app.history import AutoSaveObserver, LoggingObserver
 from app.operations import OperationFactory
 
-
 def calculator_repl() -> None:
     try:
         calc = Calculator()
@@ -76,23 +75,27 @@ def calculator_repl() -> None:
                 if command in ["add", "subtract", "multiply", "divide", "power", "root"]:
                     try:
                         print("\nEnter numbers (or 'cancel' to abort):")
-                        a = input("First number: ")
+                        a = input("First number: ").strip()
                         if a.lower() == "cancel":
                             print("Operation cancelled")
                             continue
-                        b = input("Second number: ")
+
+                        b = input("Second number: ").strip()
                         if b.lower() == "cancel":
                             print("Operation cancelled")
                             continue
 
+                        # Strategy + Factory
                         op = OperationFactory.create_operation(command)
                         calc.set_operation(op)
+
                         result = calc.perform_operation(a, b)
 
                         if isinstance(result, Decimal):
                             result = result.normalize()
 
                         print(f"\nResult: {result}")
+
                     except (ValidationError, OperationError) as e:
                         print(f"Error: {e}")
                     except Exception as e:

@@ -69,23 +69,34 @@ class Root(Operation):
 
 
 class OperationFactory:
-    """Creates an Operation instance from a command string."""
-
-    _ops: Dict[str, type[Operation]] = {
+    _operations: Dict[str, type] = {
+        # REPL command names
         "add": Addition,
         "subtract": Subtraction,
         "multiply": Multiplication,
         "divide": Division,
         "power": Power,
         "root": Root,
+
+        # Calculation operation names
+        "addition": Addition,
+        "subtraction": Subtraction,
+        "multiplication": Multiplication,
+        "division": Division,
     }
 
     @classmethod
-    def create_operation(cls, name: str) -> Operation:
-        op_cls = cls._ops.get(name.lower())
-        if not op_cls:
-            raise ValueError(f"Unknown operation: {name}")
-        return op_cls()
+    def create_operation(cls, operation_type) -> Operation:
+        # If accidentally passed an instance, just return it
+        if isinstance(operation_type, Operation):
+            return operation_type
+
+        # otherwise, look up by name
+        name = str(operation_type).strip().lower()
+        operation_class = cls._operations.get(name)
+        if not operation_class:
+            raise ValueError(f"Unknown operation: {operation_type}")
+        return operation_class()
 
 class Operations:
     @staticmethod

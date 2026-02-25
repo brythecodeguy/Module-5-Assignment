@@ -4,7 +4,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch, PropertyMock
 
+import builtins
 import pandas as pd
+from datetime import datetime
 
 from app.calculator import Calculator
 from app.calculator_repl import calculator_repl
@@ -132,6 +134,7 @@ def test_load_history_reads_csv(mock_exists, mock_read_csv, calculator):
                 "operand1": "2",
                 "operand2": "3",
                 "result": "5",
+                "timestamp": datetime.now().isoformat(),
             }
         ]
     )
@@ -139,10 +142,10 @@ def test_load_history_reads_csv(mock_exists, mock_read_csv, calculator):
     calculator.load_history()
     assert len(calculator.history) == 1
     row = calculator.history[0]
-    assert row["operation"] == "Addition"
-    assert row["operand1"] == "2"
-    assert row["operand2"] == "3"
-    assert row["result"] == "5"
+    assert row.operation == "Addition"
+    assert row.operand1 == Decimal("2")
+    assert row.operand2 == Decimal("3")
+    assert row.result == Decimal("5")
 
 
 def test_save_history_raises_history_error_on_failure(calculator, monkeypatch):
@@ -178,7 +181,89 @@ def test_repl_help_then_exit(mock_print, mock_input):
 @patch("builtins.print")
 def test_repl_addition_flow(mock_print, mock_input):
     calculator_repl()
-    # accept "5" or "5.0" depending on Decimal normalization/printing
+    # accept "5" or "5.0"
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "Result:" in printed
     assert "5" in printed
+
+@patch("builtins.input", side_effect=["history", "exit"])
+@patch("builtins.print")
+def test_repl_history_empty_then_exit(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "No calculations in history" in printed
+    assert "Goodbye!" in printed
+
+
+@patch("builtins.input", side_effect=["bogus", "exit"])
+@patch("builtins.print")
+def test_repl_unknown_command(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Unknown command" in printed
+
+
+@patch("builtins.input", side_effect=["add", "cancel", "exit"])
+@patch("builtins.print")
+def test_repl_cancel_first_number(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Operation cancelled" in printed
+
+
+@patch("builtins.input", side_effect=["add", "2", "cancel", "exit"])
+@patch("builtins.print")
+def test_repl_cancel_second_number(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Operation cancelled" in printed
+
+
+@patch("builtins.input", side_effect=["clear", "exit"])
+@patch("builtins.print")
+def test_repl_clear(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "History cleared" in printed
+
+
+@patch("builtins.input", side_effect=["undo", "redo", "exit"])
+@patch("builtins.print")
+def test_repl_undo_redo_when_empty(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Nothing to undo" in printed
+    assert "Nothing to redo" in printed
+
+
+@patch("builtins.input", side_effect=["save", "load", "exit"])
+@patch("builtins.print")
+def test_repl_save_and_load(mock_print, mock_input):
+    # Patch where Calculator is USED (inside calculator_repl module)
+    with (
+        patch("app.calculator_repl.Calculator.save_history") as save_mock,
+        patch("app.calculator_repl.Calculator.load_history") as load_mock,
+    ):
+        calculator_repl()
+
+        save_mock.assert_called()
+        load_mock.assert_called_once()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "History saved successfully" in printed
+    assert "History loaded successfully" in printed
+
+@patch("builtins.print")
+def test_repl_keyboard_interrupt_then_exit(mock_print):
+    # input() raises KeyboardInterrupt once, then returns "exit"
+    with patch.object(builtins, "input", side_effect=[KeyboardInterrupt, "exit"]):
+        calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Operation cancelled" in printed
+
+@patch("builtins.print")
+def test_repl_eof_exits(mock_print):
+    with patch.object(builtins, "input", side_effect=[EOFError]):
+        calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Input terminated" in printed or "Exiting" in printed

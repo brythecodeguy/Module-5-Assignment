@@ -5,17 +5,17 @@ from decimal import Decimal, InvalidOperation
 from app.calculator_config import CalculatorConfig
 from app.exceptions import ValidationError
 
-
 class InputValidator:
     @staticmethod
-    def validate_number(value: str | int | float | Decimal, config: CalculatorConfig) -> Decimal:
+    def validate_number(value, config) -> Decimal:
+        raw = str(value).strip()
+
         try:
-            d = Decimal(str(value).strip())
+            d = Decimal(raw)
         except (InvalidOperation, ValueError, TypeError):
-            raise ValidationError("Invalid number input")
+            raise ValidationError(f"Invalid number format: {value}")
 
-        # optional max range rule
         if abs(d) > Decimal(str(config.max_input_value)):
-            raise ValidationError("Input exceeds maximum allowed value")
+            raise ValidationError("Value exceeds maximum allowed")
 
-        return d
+        return d.normalize()
