@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 from pathlib import Path
 
+from pandas.errors import EmptyDataError
 from app.calculation import Calculation
 from app.calculator_config import CalculatorConfig
 from app.calculator_memento import CalculatorMemento
@@ -60,7 +61,7 @@ class Calculator:
         self.redo_stack.clear()
 
         # store history as Calculation (but don't re-execute)
-        op_label = str(self.operation_strategy)  # "Addition", "Division", etc.
+        op_label = type(self.operation_strategy).__name__  # "Addition", "Division", etc.
         calc = Calculation(operation=op_label, operand1=x, operand2=y, result=result)
         self.history.append(calc)
         self._notify(calc)
@@ -90,17 +91,33 @@ class Calculator:
 
     def save_history(self) -> None:
         try:
+            self.config.ensure_directories()
+
+            #don't wipe an existing file with an empty history
+            if not self.history and Path(self.config.history_file).exists():
+                return
+
             df = pd.DataFrame([c.to_dict() for c in self.history])
             df.to_csv(self.config.history_file, index=False, encoding=self.config.default_encoding)
+
         except Exception as e:
             raise HistoryError(f"Failed to save history: {e}") from e
 
     def load_history(self) -> None:
+        self.config.ensure_directories()
+
         if not Path(self.config.history_file).exists():
             return
+
         try:
             df = pd.read_csv(self.config.history_file, encoding=self.config.default_encoding)
             rows = df.to_dict(orient="records") if not df.empty else []
             self.history = [Calculation.from_dict(r) for r in rows]
+
+        except EmptyDataError:
+            # empty file = treat as no history
+            self.history = []
+            return
+
         except Exception as e:
             raise HistoryError(f"Failed to load history: {e}") from e

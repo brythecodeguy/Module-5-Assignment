@@ -39,13 +39,17 @@ class Calculation:
         return name.strip().lower()
 
     def to_dict(self) -> dict[str, str]:
-        # store operation name consistently as a string
-        op_name = self.operation if isinstance(self.operation, str) else str(self.operation)
+        op_name = self.operation if isinstance(self.operation, str) else type(self.operation).__name__
+
+        a_str = format(self.operand1, "f")
+        b_str = format(self.operand2, "f")
+        r_str = "" if self.result is None else format(self.result, "f")
+
         return {
             "operation": op_name,
-            "operand1": str(self.operand1),
-            "operand2": str(self.operand2),
-            "result": str(self.result),
+            "operand1": a_str,
+            "operand2": b_str,
+            "result": r_str,
             "timestamp": self.timestamp.isoformat(),
         }
 

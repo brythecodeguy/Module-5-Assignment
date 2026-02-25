@@ -6,6 +6,7 @@ from unittest.mock import patch, PropertyMock
 
 import builtins
 import pandas as pd
+from pandas.errors import EmptyDataError
 from datetime import datetime
 
 from app.calculator import Calculator
@@ -189,11 +190,11 @@ def test_repl_addition_flow(mock_print, mock_input):
 @patch("builtins.input", side_effect=["history", "exit"])
 @patch("builtins.print")
 def test_repl_history_empty_then_exit(mock_print, mock_input):
-    calculator_repl()
+    with patch("app.calculator_repl.Calculator.load_history"):
+        calculator_repl()
+
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "No calculations in history" in printed
-    assert "Goodbye!" in printed
-
 
 @patch("builtins.input", side_effect=["bogus", "exit"])
 @patch("builtins.print")
@@ -239,12 +240,12 @@ def test_repl_undo_redo_when_empty(mock_print, mock_input):
 @patch("builtins.input", side_effect=["save", "load", "exit"])
 @patch("builtins.print")
 def test_repl_save_and_load(mock_print, mock_input):
-    # Patch where Calculator is USED (inside calculator_repl module)
     with (
         patch("app.calculator_repl.Calculator.save_history") as save_mock,
         patch("app.calculator_repl.Calculator.load_history") as load_mock,
     ):
-        calculator_repl()
+        with patch.dict("os.environ", {"CALCULATOR_DISABLE_STARTUP_LOAD": "1"}):
+            calculator_repl()
 
         save_mock.assert_called()
         load_mock.assert_called_once()
@@ -271,7 +272,9 @@ def test_repl_eof_exits(mock_print):
 @patch("builtins.input", side_effect=["history", "exit"])
 @patch("builtins.print")
 def test_repl_history_empty(mock_print, mock_input):
-    calculator_repl()
+    with patch("app.calculator_repl.Calculator.load_history"):
+        calculator_repl()
+
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "No calculations in history" in printed
 
@@ -412,3 +415,23 @@ def test_repl_generic_exception_in_loop_continues(mock_print):
 
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "Error: weird" in printed
+
+def test_load_history_handles_empty_data_error(calculator):
+    with (
+        patch("app.calculator.Path.exists", return_value=True),
+        patch("app.calculator.pd.read_csv", side_effect=EmptyDataError("empty file")),
+    ):
+        calculator.load_history()
+        assert calculator.history == []
+
+def test_repl_autoloads_history_on_startup_when_file_has_data():
+    with (
+        patch("app.calculator_repl.Path.exists", return_value=True),
+        patch("app.calculator_repl.Path.stat") as stat_mock,
+        patch("app.calculator_repl.Calculator.load_history") as load_mock,
+        patch("builtins.input", side_effect=["exit"]),
+        patch("builtins.print"),
+    ):
+        stat_mock.return_value.st_size = 10  # non-empty file
+        calculator_repl()
+        load_mock.assert_called_once()

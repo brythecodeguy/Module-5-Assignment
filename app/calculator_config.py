@@ -2,14 +2,14 @@ from dataclasses import dataclass
 from decimal import Decimal
 from numbers import Number
 from pathlib import Path
+
 import os
+import tempfile
+
 from typing import Optional
-
 from dotenv import load_dotenv
-
 from app.exceptions import ConfigurationError
 
-# Load environment variables from a .env file into environment
 load_dotenv(override=True)
 
 
@@ -38,7 +38,11 @@ class CalculatorConfig:
     ):
         project_root = get_project_root()
 
+        if os.getenv("PYTEST_CURRENT_TEST"):
+            project_root = Path(tempfile.gettempdir()) / "module5_calculator_test"
+        
         self.base_dir = base_dir or Path(
+
             os.getenv('CALCULATOR_BASE_DIR', str(project_root))
         ).resolve()
 
@@ -95,8 +99,8 @@ class CalculatorConfig:
 
     def ensure_directories(self) -> None:
         """Create required directories for logs and history."""
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.history_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(self.history_dir, exist_ok=True)
 
     def validate(self) -> None:
         if self.max_history_size <= 0:

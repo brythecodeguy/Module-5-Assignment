@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
-
+import os
+from pathlib import Path
 from app.calculator import Calculator
 from app.exceptions import OperationError, ValidationError
 from app.history import AutoSaveObserver, LoggingObserver
@@ -12,11 +13,11 @@ def calculator_repl() -> None:
         calc.add_observer(LoggingObserver())
         calc.add_observer(AutoSaveObserver(calc))
 
-        loaded_on_startup = False
-
         try:
-            calc.load_history()
-            loaded_on_startup = True
+            if os.getenv("CALCULATOR_DISABLE_STARTUP_LOAD") != "1":
+                history_path = Path(calc.config.history_file)
+                if history_path.exists() and history_path.stat().st_size > 0:
+                    calc.load_history()
         except Exception as e:
             print(f"Warning: Could not load history: {e}")
 
@@ -76,6 +77,7 @@ def calculator_repl() -> None:
                     continue
 
                 if command == "load":
+                    calc.load_history()
                     print("History loaded successfully")
                     continue
 
@@ -97,9 +99,6 @@ def calculator_repl() -> None:
                         calc.set_operation(op)
 
                         result = calc.perform_operation(a, b)
-
-                        if isinstance(result, Decimal):
-                            result = result.normalize()
 
                         print(f"\nResult: {result}")
 

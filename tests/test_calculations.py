@@ -6,6 +6,7 @@ import pytest
 
 from app.calculation import Calculation
 from app.exceptions import OperationError
+from app.operations import Addition
 
 
 def test_addition():
@@ -148,7 +149,7 @@ def test_str_contains_operation_and_result():
 
 
 def test_equality():
-    # If your __eq__ ignores timestamp, this passes.
+    # If __eq__ ignores timestamp, this passes.
     # If not, set a shared timestamp explicitly.
     ts = datetime.now()
     c1 = Calculation(operation="Addition", operand1=Decimal("2"), operand2=Decimal("3"), timestamp=ts)
@@ -165,4 +166,15 @@ def test_equality_notimplemented_path():
 
 def test_normalize_op():
     assert Calculation._normalize_op("  ADD  ") == "add"
-    
+
+def test_to_dict_with_operation_instance():
+    calc = Calculation(
+        operation=Addition(),
+        operand1=Decimal("2"),
+        operand2=Decimal("3"),
+        result=Decimal("5")
+    )
+
+    data = calc.to_dict()
+
+    assert data["operation"] == "Addition"
