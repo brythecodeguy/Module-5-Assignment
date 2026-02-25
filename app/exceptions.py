@@ -6,6 +6,14 @@ class ConfigurationError(CalculatorError):
     """Raised when configuration settings are invalid."""
 
 
+class ValidationError(CalculatorError):
+    """Raised when user input/operands fail validation."""
+
+
+class OperationError(CalculatorError):
+    """Raised when an operation cannot be performed."""
+
+
 class InvalidOperationError(CalculatorError):
     """Raised when an operation command is not supported."""
 

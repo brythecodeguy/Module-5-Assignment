@@ -1,147 +1,184 @@
 import pytest
-from app.calculator import calculator
+from decimal import Decimal
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch, PropertyMock
 
-import builtins
-import app.calculator as calc_mod
+import pandas as pd
 
-ERROR_MSG = "Invalid input. Please follow the format: <operation> <num1> <num2>"
-
-
-def run_calculator_with_inputs(inputs, monkeypatch, capsys):
-    it = iter(inputs)
-    monkeypatch.setattr("builtins.input", lambda _: next(it))
-
-    with pytest.raises(SystemExit):
-        calculator()
-
-    return capsys.readouterr().out
+from app.calculator import Calculator
+from app.calculator_repl import calculator_repl
+from app.calculator_config import CalculatorConfig
+from app.exceptions import OperationError, ValidationError, HistoryError
+from app.history import LoggingObserver, AutoSaveObserver
+from app.operations import OperationFactory
 
 
-# positive test cases
-def test_add(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["add 2 3", "exit"], monkeypatch, capsys)
-    assert "Result:" in out
-    assert "AddCalculation" in out
-    assert "= 5.0" in out
+@pytest.fixture
+def calculator():
+    """
+    Build a Calculator using a temp base_dir so file paths never touch real disk locations.
+    We patch the config properties to point into the temp directory.
+    """
+    with TemporaryDirectory() as td:
+        temp = Path(td)
+        cfg = CalculatorConfig(base_dir=temp)
+
+        with (
+            patch.object(CalculatorConfig, "log_dir", new_callable=PropertyMock) as p_log_dir,
+            patch.object(CalculatorConfig, "log_file", new_callable=PropertyMock) as p_log_file,
+            patch.object(CalculatorConfig, "history_dir", new_callable=PropertyMock) as p_hist_dir,
+            patch.object(CalculatorConfig, "history_file", new_callable=PropertyMock) as p_hist_file,
+        ):
+            p_log_dir.return_value = temp / "logs"
+            p_log_file.return_value = temp / "logs" / "calculator.log"
+            p_hist_dir.return_value = temp / "history"
+            p_hist_file.return_value = temp / "history" / "calculator_history.csv"
+
+            yield Calculator(config=cfg)
+
+# Calculator initialization
+def test_calculator_starts_empty(calculator):
+    assert calculator.history == []
+    assert calculator.undo_stack == []
+    assert calculator.redo_stack == []
+    assert calculator.operation_strategy is None
+
+# Observers
+
+def test_add_and_remove_observer(calculator):
+    obs = LoggingObserver()
+    calculator.add_observer(obs)
+    assert obs in calculator.observers
+
+    calculator.remove_observer(obs)
+    assert obs not in calculator.observers
 
 
-def test_subtract(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["subtract 9 4", "exit"], monkeypatch, capsys)
-    assert "Result:" in out
-    assert "SubtractCalculation" in out
-    assert "= 5.0" in out
+def test_autosave_observer_can_be_added(calculator):
+    obs = AutoSaveObserver(calculator)
+    calculator.add_observer(obs)
+    assert obs in calculator.observers
+
+# Setting operations + performing
+
+def test_set_operation_sets_strategy(calculator):
+    op = OperationFactory.create_operation("add")
+    calculator.set_operation(op)
+    assert calculator.operation_strategy is op
 
 
-def test_multiply(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["multiply 4 5", "exit"], monkeypatch, capsys)
-    assert "Result:" in out
-    assert "MultiplyCalculation" in out
-    assert "= 20.0" in out
+def test_perform_operation_addition(calculator):
+    calculator.set_operation(OperationFactory.create_operation("add"))
+    result = calculator.perform_operation("2", "3")
+    assert result == Decimal("5")
 
 
-def test_divide(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["divide 10 2", "exit"], monkeypatch, capsys)
-    assert "Result:" in out
-    assert "DivideCalculation" in out
-    assert "= 5.0" in out
+def test_perform_operation_requires_strategy(calculator):
+    with pytest.raises(OperationError, match="No operation set"):
+        calculator.perform_operation("2", "3")
 
 
-# negative test cases
-def test_divide_by_zero(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["divide 5 0", "exit"], monkeypatch, capsys)
-    assert "Cannot divide by zero" in out or "Division by zero" in out
+def test_perform_operation_invalid_number_raises_validation(calculator):
+    calculator.set_operation(OperationFactory.create_operation("add"))
+    with pytest.raises(ValidationError):
+        calculator.perform_operation("not-a-number", "3")
 
 
-def test_invalid_input(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["add two three", "exit"], monkeypatch, capsys)
-    assert "Invalid input" in out
+def test_division_by_zero_raises_validation(calculator):
+    calculator.set_operation(OperationFactory.create_operation("divide"))
+    with pytest.raises(ValidationError):
+        calculator.perform_operation("5", "0")
 
 
-def test_invalid_arg_count(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["add 5", "exit"], monkeypatch, capsys)
-    assert "Invalid input" in out
+# Undo / Redo
+
+def test_undo_restores_previous_state(calculator):
+    calculator.set_operation(OperationFactory.create_operation("add"))
+    calculator.perform_operation("2", "3")
+    assert len(calculator.history) == 1
+
+    ok = calculator.undo()
+    assert ok is True
+    assert calculator.history == []
 
 
-def test_calculator_invalid_operation(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["modulus 5 3", "exit"], monkeypatch, capsys)
-    assert "Unsupported" in out or "Invalid operation" in out
+def test_redo_restores_undone_state(calculator):
+    calculator.set_operation(OperationFactory.create_operation("add"))
+    calculator.perform_operation("2", "3")
+    calculator.undo()
+
+    ok = calculator.redo()
+    assert ok is True
+    assert len(calculator.history) == 1
+
+# Persistence: save / load
+
+@patch("app.calculator.pd.DataFrame.to_csv")
+def test_save_history_calls_to_csv(mock_to_csv, calculator):
+    calculator.set_operation(OperationFactory.create_operation("add"))
+    calculator.perform_operation("2", "3")
+    calculator.save_history()
+    mock_to_csv.assert_called_once()
 
 
-def test_calculator_blank_input(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["", "exit"], monkeypatch, capsys)
-    assert "Welcome" in out
+@patch("app.calculator.pd.read_csv")
+@patch("app.calculator.Path.exists", return_value=True)
+def test_load_history_reads_csv(mock_exists, mock_read_csv, calculator):
+    mock_read_csv.return_value = pd.DataFrame(
+        [
+            {
+                "operation": "Addition",
+                "operand1": "2",
+                "operand2": "3",
+                "result": "5",
+            }
+        ]
+    )
+
+    calculator.load_history()
+    assert len(calculator.history) == 1
+    row = calculator.history[0]
+    assert row["operation"] == "Addition"
+    assert row["operand1"] == "2"
+    assert row["operand2"] == "3"
+    assert row["result"] == "5"
 
 
-def test_calculator_help_command(monkeypatch, capsys):
-    out = run_calculator_with_inputs(["help", "exit"], monkeypatch, capsys)
-    assert "Help" in out or "Usage" in out or "Commands" in out
+def test_save_history_raises_history_error_on_failure(calculator, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("disk full")
 
-def test_display_help_function_body(capsys):
-    #display_help() print block
-    calc_mod.display_help()
-    out = capsys.readouterr().out
-    assert "Calculator REPL Help" in out
-    assert "Supported operations" in out
-    assert "Special commands" in out
+    monkeypatch.setattr(pd.DataFrame, "to_csv", boom)
+
+    with pytest.raises(HistoryError):
+        calculator.save_history()
 
 
-def test_display_history_empty_branch(capsys):
-    #if not history -> print + return
-    calc_mod.display_history([])
-    out = capsys.readouterr().out
-    assert "No calculations performed yet." in out
+# REPL tests
+
+@patch("builtins.input", side_effect=["exit"])
+@patch("builtins.print")
+def test_repl_exit_saves_and_quits(mock_print, mock_input):
+    with patch("app.calculator.Calculator.save_history") as save_mock:
+        calculator_repl()
+        save_mock.assert_called_once()
+        mock_print.assert_any_call("History saved successfully.")
+        mock_print.assert_any_call("Goodbye!")
 
 
-def test_history_command_path(monkeypatch, capsys):
-    #if command == "history": display_history(history); continue
-    out = run_calculator_with_inputs(["history", "exit"], monkeypatch, capsys)
-    assert "No calculations performed yet." in out
+@patch("builtins.input", side_effect=["help", "exit"])
+@patch("builtins.print")
+def test_repl_help_then_exit(mock_print, mock_input):
+    calculator_repl()
+    mock_print.assert_any_call("\nAvailable commands:")
 
 
-def test_generic_exception_handler(monkeypatch, capsys):
-    #except Exception as e: print(f"Error during calculation: {e}")
-    # Trigger by making __str__ raise a non-ValueError exception.
-    from app.calculation import AddCalculation
-
-    def boom_str(self):
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(AddCalculation, "__str__", boom_str)
-
-    out = run_calculator_with_inputs(["add 1 2", "exit"], monkeypatch, capsys)
-    assert "Error during calculation:" in out
-    assert "boom" in out
-
-
-def test_keyboard_interrupt_branch(monkeypatch, capsys):
-    def raise_keyboard_interrupt(_):
-        raise KeyboardInterrupt
-
-    monkeypatch.setattr(builtins, "input", raise_keyboard_interrupt)
-
-    with pytest.raises(SystemExit):
-        calc_mod.calculator()
-
-    out = capsys.readouterr().out
-    assert "Keyboard interrupt detected. Goodbye!" in out
-
-
-def test_eof_branch(monkeypatch, capsys):
-    def raise_eof(_):
-        raise EOFError
-
-    monkeypatch.setattr(builtins, "input", raise_eof)
-
-    with pytest.raises(SystemExit):
-        calc_mod.calculator()
-
-    out = capsys.readouterr().out
-    assert "EOF detected. Goodbye!" in out
-
-def test_display_history_with_items(monkeypatch, capsys):
-    # First perform a calculation so history has something in it
-    out = run_calculator_with_inputs(["add 2 3", "history", "exit"], monkeypatch, capsys)
-
-    assert "Calculation History:" in out
-    assert "1." in out
-    assert "AddCalculation" in out
+@patch("builtins.input", side_effect=["add", "2", "3", "exit"])
+@patch("builtins.print")
+def test_repl_addition_flow(mock_print, mock_input):
+    calculator_repl()
+    # accept "5" or "5.0" depending on Decimal normalization/printing
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Result:" in printed
+    assert "5" in printed

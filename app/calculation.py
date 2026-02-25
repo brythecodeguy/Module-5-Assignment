@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from app.operation import Operations
+from app.operations import Operations
 
 
 class Calculation(ABC):
@@ -75,3 +75,16 @@ class MultiplyCalculation(Calculation):
 class DivideCalculation(Calculation):
     def execute(self) -> float:
         return Operations.divide(self.a, self.b)
+
+@CalculationFactory.register_calculation("power")
+class PowerCalculation(Calculation):
+    def execute(self) -> float:
+        return self.a ** self.b
+
+
+@CalculationFactory.register_calculation("root")
+class RootCalculation(Calculation):
+    def execute(self) -> float:
+        if self.b == 0:
+            raise ValueError("Root degree cannot be zero")
+        return self.a ** (1 / self.b)   
