@@ -1,29 +1,40 @@
-# Module 4: Assignment - Professional Calculator Command-Line Application with 100% Test Coverage
+# Module 5: Assignment - Enhanced Professional Calculator Application with Advanced Design Patterns and pandas
 
 ## Overview
 
-This is a command-line calculator written in Python that uses object-oriented programming principles, the Factory design pattern, input validation, and comprehensive error handling.  
-It supports addition, subtraction, multiplication, and division using a REPL (Read–Eval–Print Loop) interface.
+This project is an advanced, modular calculator application built in Python.
+It demonstrates object-oriented programming principles, multiple design patterns, persistent data management using pandas, configuration management via environment variables, and full automated testing with enforced 100% test coverage.
 
-The project includes automated unit and parameterized tests using pytest, 100% test coverage enforcement using pytest-cov, and continuous integration using GitHub Actions.
+Module 5 significantly expands upon Module 4 by introducing:
 
-Module 4 expands upon Module 3 by introducing a CalculationFactory, decorator based registration of calculation types, history tracking, and more robust error handling.
+- Strategy Pattern for interchangeable arithmetic operations
+- Factory Pattern for dynamic operation instantiation
+- Observer Pattern for logging and auto-saving history
+- Memento Pattern for undo/redo functionality
+- Facade Pattern through the Calculator interface
+- Persistent history storage using pandas and CSV files
+- Environment-based configuration using python-dotenv
+
+All functionality is verified through comprehensive pytest test suites with CI enforcement.
 
 ---
 
 ## Features
 
-- Add, subtract, multiply, divide  
-- REPL command-line interface  
-- Shortcut commands (sub, mul, div)  
-- Help command for user guidance  
-- History command to display previous calculations  
-- Input validation for incorrect formats and non-numeric values  
-- Error handling (invalid input, divide by zero, unsupported    operations)  
-- LBYL and EAFP error handling strategies  
-- Graceful handling of KeyboardInterrupt and EOFError  
-- Automated unit and parameterized tests with pytest  
-- Continuous integration with GitHub Actions enforcing 100% test coverage  
+- Add, subtract, multiply, divide, power, root
+- REPL command-line interface
+- Help command for user guidance
+- History command to display previous calculations
+- Clear command to reset history
+- Undo and redo functionality using the Memento pattern
+- Save and load history to/from CSV files
+- Persistent history storage using pandas
+- Input validation for incorrect formats and non-numeric values
+- Custom exception handling (invalid input, divide by zero, unsupported operations, history errors)
+- LBYL and EAFP error handling strategies
+- Good handling of KeyboardInterrupt and EOFError
+- Automated unit and parameterized tests with pytest
+- Continuous integration with GitHub Actions enforcing 100% test coverage
 
 ---
 
@@ -32,8 +43,8 @@ Module 4 expands upon Module 3 by introducing a CalculationFactory, decorator ba
 Clone the repository:
 
 ```bash
-git clone https://github.com/brythecodeguy/Module-4-Assignment.git
-cd Module-4-Assignment
+git clone https://github.com/brythecodeguy/Module-5-Assignment.git
+cd Module-5-Assignment
 ```
 
 Create and activate a virtual environment, then install the required dependencies:
