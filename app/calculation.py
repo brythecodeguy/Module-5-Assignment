@@ -93,38 +93,3 @@ class Calculation:
             and self.operand2 == other.operand2
             and self.result == other.result
         )
-    @classmethod
-    def from_dict(cls, data: dict) -> "Calculation":
-        try:
-            op = data["operation"]
-            a = Decimal(str(data["operand1"]))
-            b = Decimal(str(data["operand2"]))
-            saved_result = Decimal(str(data["result"]))
-            ts_raw = data.get("timestamp")
-            ts = datetime.fromisoformat(ts_raw) if ts_raw else datetime.now()
-        except Exception as e:
-            raise OperationError("Invalid calculation data") from e
-
-        calc = cls(operation=op, operand1=a, operand2=b, timestamp=ts)
-        if calc.result != saved_result:
-            logging.warning(
-                f"Loaded calculation result {saved_result} differs from computed result {calc.result}"
-            )
-        return calc
-
-    def format_result(self, precision: int) -> str:
-        q = Decimal("1").scaleb(-precision)  # 10^-precision
-        return str(self.result.quantize(q))
-
-    def __str__(self) -> str:
-        return f"{self.operation} ({self.operand1}, {self.operand2}) = {self.result}"
-    
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Calculation):
-            return NotImplemented
-        return (
-            self.operation == other.operation
-            and self.operand1 == other.operand1
-            and self.operand2 == other.operand2
-            and self.result == other.result
-        )

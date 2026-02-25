@@ -267,3 +267,148 @@ def test_repl_eof_exits(mock_print):
         calculator_repl()
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "Input terminated" in printed or "Exiting" in printed
+
+@patch("builtins.input", side_effect=["history", "exit"])
+@patch("builtins.print")
+def test_repl_history_empty(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "No calculations in history" in printed
+
+
+@patch("builtins.input", side_effect=["clear", "exit"])
+@patch("builtins.print")
+def test_repl_clear(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "History cleared" in printed
+
+
+@patch("builtins.input", side_effect=["undo", "redo", "exit"])
+@patch("builtins.print")
+def test_repl_undo_redo_nothing(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Nothing to undo" in printed
+    assert "Nothing to redo" in printed
+
+
+@patch("builtins.input", side_effect=["wat", "exit"])
+@patch("builtins.print")
+def test_repl_unknown_command(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Unknown command" in printed
+
+
+@patch("builtins.input", side_effect=["add", "cancel", "exit"])
+@patch("builtins.print")
+def test_repl_cancel_first_number(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Operation cancelled" in printed
+
+
+@patch("builtins.input", side_effect=["add", "2", "cancel", "exit"])
+@patch("builtins.print")
+def test_repl_cancel_second_number(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Operation cancelled" in printed
+
+
+@patch("builtins.input", side_effect=[KeyboardInterrupt(), "exit"])
+@patch("builtins.print")
+def test_repl_keyboardinterrupt_at_prompt(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Operation cancelled" in printed
+
+
+@patch("builtins.input", side_effect=EOFError())
+@patch("builtins.print")
+def test_repl_eof_exits(mock_print, mock_input):
+    calculator_repl()
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Input terminated. Exiting" in printed
+
+@patch("builtins.input", side_effect=["exit"])
+@patch("builtins.print")
+def test_repl_exit_warns_if_save_fails(mock_print, mock_input):
+    with patch("app.calculator_repl.Calculator.save_history", side_effect=Exception("nope")):
+        calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Warning: Could not save history" in printed
+    assert "Goodbye!" in printed
+
+@patch("builtins.input", side_effect=["history", "exit"])
+@patch("builtins.print")
+def test_repl_history_non_empty_prints_entries(mock_print, mock_input):
+    with patch("app.calculator_repl.Calculator.show_history", return_value=["Addition (2, 3) = 5"]):
+        calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Calculation History" in printed
+    assert "1. Addition (2, 3) = 5" in printed
+
+@patch("builtins.input", side_effect=["add", "2", "3", "exit"])
+@patch("builtins.print")
+def test_repl_operation_unexpected_error_prints(mock_print, mock_input):
+    with patch("app.calculator_repl.OperationFactory.create_operation", side_effect=RuntimeError("boom")):
+        calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Unexpected error: boom" in printed
+
+@patch("builtins.print")
+def test_repl_eof_exits(mock_print):
+    with patch("builtins.input", side_effect=EOFError()):
+        calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Input terminated. Exiting" in printed
+
+@patch("builtins.print")
+def test_repl_fatal_error_raises(mock_print):
+    with patch("app.calculator_repl.Calculator", side_effect=Exception("fatal")):
+        with pytest.raises(Exception, match="fatal"):
+            calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Fatal error: fatal" in printed
+
+def test_load_history_when_file_missing_no_crash(calculator):
+    with patch("app.calculator.Path.exists", return_value=False):
+        calculator.load_history()
+        assert calculator.history == []
+
+def test_undo_returns_false_when_empty(calculator):
+    assert calculator.undo() is False
+
+
+def test_redo_returns_false_when_empty(calculator):
+    assert calculator.redo() is False
+
+def test_load_history_raises_history_error_when_read_csv_fails(calculator):
+    with patch("app.calculator.Path.exists", return_value=True), \
+         patch("app.calculator.pd.read_csv", side_effect=RuntimeError("boom")):
+        with pytest.raises(HistoryError, match="Failed to load history"):
+            calculator.load_history()
+
+@patch("builtins.input", side_effect=["add", "2", "3", "exit"])
+@patch("builtins.print")
+def test_repl_operation_error_prints_error(mock_print, mock_input):
+    with patch("app.calculator_repl.Calculator.perform_operation", side_effect=OperationError("boom")):
+        calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Error: boom" in printed
+
+@patch("builtins.print")
+def test_repl_generic_exception_in_loop_continues(mock_print):
+    with patch("builtins.input", side_effect=[Exception("weird"), "exit"]):
+        calculator_repl()
+
+    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "Error: weird" in printed

@@ -12,6 +12,14 @@ def calculator_repl() -> None:
         calc.add_observer(LoggingObserver())
         calc.add_observer(AutoSaveObserver(calc))
 
+        loaded_on_startup = False
+
+        try:
+            calc.load_history()
+            loaded_on_startup = True
+        except Exception as e:
+            print(f"Warning: Could not load history: {e}")
+
         print("Calculator started. Type 'help' for commands.")
 
         while True:
@@ -68,7 +76,6 @@ def calculator_repl() -> None:
                     continue
 
                 if command == "load":
-                    calc.load_history()
                     print("History loaded successfully")
                     continue
 

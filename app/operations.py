@@ -97,22 +97,3 @@ class OperationFactory:
         if not operation_class:
             raise ValueError(f"Unknown operation: {operation_type}")
         return operation_class()
-
-class Operations:
-    @staticmethod
-    def add(a: float, b: float) -> float:
-        return float(a) + float(b)
-
-    @staticmethod
-    def subtract(a: float, b: float) -> float:
-        return float(a) - float(b)
-
-    @staticmethod
-    def multiply(a: float, b: float) -> float:
-        return float(a) * float(b)
-
-    @staticmethod
-    def divide(a: float, b: float) -> float:
-        if float(b) == 0.0:
-            raise ValueError("Division by zero is not allowed")
-        return float(a) / float(b)

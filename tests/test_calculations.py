@@ -162,3 +162,7 @@ def test_equality():
 def test_equality_notimplemented_path():
     c = Calculation(operation="Addition", operand1=Decimal("2"), operand2=Decimal("3"))
     assert (c == 123) is False
+
+def test_normalize_op():
+    assert Calculation._normalize_op("  ADD  ") == "add"
+    
